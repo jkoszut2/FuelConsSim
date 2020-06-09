@@ -180,9 +180,9 @@ for p=1:length(straights(:,1))
         % Check to make sure over-run fuel cut (ORFC) isn't active
         % NOTE: These should NOT be getting used by the script when
         % testEntireRace is off
-        if (string(Log) == 'FSAEM_Endurance_20190511-1260803.csv')
+        if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
             ORFC_RPM = 5500; % RPM above which ORFC is active
-        elseif (string(Log) == 'FSAEL_Endurance_20190622-1260800_MATLABfix.csv')
+        elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
             ORFC_RPM = 6000; % RPM above which ORFC is active
         end
         ORFC_TP = 20; % Throttle position below which ORFC is active

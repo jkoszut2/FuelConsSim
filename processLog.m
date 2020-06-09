@@ -10,7 +10,23 @@ function [LoggedData,LoggedData2,index_Time,index_RPM,index_TP, ...
 warning('off', 'MATLAB:table:ModifiedAndSavedVarnames');
 logfilename = logFileName;
 LoggedData = readtable(logfilename); % Converts logged data to table
-LoggedData2 = readmatrix(logfilename); % Converts logged data to double array
+try
+    LoggedData2 = readmatrix(logfilename); % Converts logged data to double array
+catch
+    fprintf(['Could not find function "readmatrix".\n' ...
+        'Likely using MATLAB version pre-2019a.\n' ...
+        'Current MATLAB version: %s\n' ...
+        'Will proceed using preprocessed data log.\n'], version)
+    if (strcmp(logfilename,'FSAEM_Endurance_20190511-1260803.csv'))
+        preProcessedData = load('LD2FSAEM.mat');
+        LoggedData2 = preProcessedData.LD2FSAEM;
+        clear preProcessedData;
+    elseif (strcmp(logfilename,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
+        preProcessedData = load('LD2FSAEL.mat');
+        LoggedData2 = preProcessedData.LD2FSAEL;
+        clear preProcessedData;
+    end
+end
 LoggedData2 = LoggedData2(1:end-1,:); % Get rid of last row which is NaN
 % NOTE: LoggedData2 array will have samples indexed one row higher than
 % LoggedData table due to second row of LoggedData table showing units
