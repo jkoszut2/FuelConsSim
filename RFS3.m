@@ -19,7 +19,7 @@ LogFSAEL = 'FSAEL_Endurance_20190622-1260800_MATLABfix.csv';
 t5 = tic();
 fprintf('Running parfor loop\n')
 
-factor1 = 0.8:0.01:1.2;
+factor1 = (-10:1:10)/11;
 FSAEMpts = zeros(length(factor1),2);
 FSAELpts = zeros(length(factor1),2);
 parfor k = 1:length(factor1)

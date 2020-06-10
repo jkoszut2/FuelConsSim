@@ -19,6 +19,31 @@ if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
     Torque_lbft = [0.3 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
     30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
     29.13 27.66 25.5]-0.3; % lb-ft
+%     % 2.6.1.8p
+%     FEPW = [0 2.742 2.607 3.201 3.797 3.953 4.245 4.13 4.309 4.363 4.391 ...
+%         4.174 4.269	4.406 4.707	4.881 5.524	5.629 5.614	5.322 5.401	5.271 ...
+%         5.202 5.053	4.811 4.562]*1.015*1.014; % ms
+%     Torque_lbft = [0.3 16.26666667 16.93333333 22.66666667 26.43333333 ...
+%         27.63333333	29.96666667	28.63333333	30.13333333	31.76666667	 ...
+%         30.93333333	31.96666667	31.8	32.23333333	33.36666667	35.66666667	...
+%         38.8 37.96666667 36.9 35.23333333 34 31.93333333 30.66666667 ...
+%         28.96666667	27.06666667 25.3333]-0.3; % lb-ft
+    % 2.6.1.15e
+%     FEPW = [0 2.4192 2.5564 3.10415 3.6288 3.7513 3.84335 3.9305 4.0229 ...
+%         4.0194 4.0145 3.92875 4.02325 4.2308 4.4548 4.7124 5.2346 5.215 ...
+%         5.13846 4.93686 4.81425 4.83 4.95308 4.7047 4.393783 4.34665]*1.015*1.014; % ms
+%     % 0.2 lbft loss assumed due to changes from 2.6.1.10e to 2.6.1.15e
+%     % 0.3 lbft has to be accounted for 2.6.1.8e --> 2.6.1.10e, so really
+%     % have to assume loss of 0.5 lbft from 2.6.1.08e --> 2.6.1.15e
+%     Torque_lbft = [0.5 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
+%     30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
+%     29.13 27.66 25.5]-0.5; % lb-ft
+%     FEPW = [0 2.432 2.492 3.071 3.624 3.764 4.043 3.848 4.045 4.045 ...
+%         4.163 3.953 4.028 4.106 4.409 4.633 5.032 5.104 5.119 4.684 ...
+%         4.876 4.6 4.356 4.482 4.251 4.116]*1.015*1.014;
+%     Torque_lbft = [0.3 15.1 16.133 22.3 25.466 26.9 29.3666 28.1666 29.7 ...
+%         30.9 30.166 31.2 30.966 31 31.933 34.133 37.233 36.3 34.933 ...
+%         33.166 31.633 29.933 28.633 28.166 26.6 24.333]-0.3;
 elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
     fdr = 34/11;
     % 2.6.1.15e
@@ -35,6 +60,31 @@ elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
     Torque_lbft = [0.5 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
     30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
     29.13 27.66 25.5]-0.5; % lb-ft
+%     % 2.6.1.8p
+%     FEPW = [0 2.742 2.607 3.201 3.797 3.953 4.245 4.13 4.309 4.363 4.391 ...
+%         4.174 4.269	4.406 4.707	4.881 5.524	5.629 5.614	5.322 5.401	5.271 ...
+%         5.202 5.053	4.811 4.562]*0.992*0.984; % ms
+%     Torque_lbft = [0.5 16.26666667 16.93333333 22.66666667 26.43333333 ...
+%         27.63333333	29.96666667	28.63333333	30.13333333	31.76666667	 ...
+%         30.93333333	31.96666667	31.8	32.23333333	33.36666667	35.66666667	...
+%         38.8 37.96666667 36.9 35.23333333 34 31.93333333 30.66666667 ...
+%         28.96666667	27.06666667 25.3333]-0.5; % lb-ft
+    % 2.6.1.10e
+%     FEPW = [0 2.4192,2.5564,3.10415,3.7058,3.7513,3.9263,3.9697,4.0796, ...
+%         4.0922,4.0957,4.01625,4.08975,4.2679,4.4856,4.7614,5.319475, ...
+%         5.327816,5.19843,5.07126,4.98575,4.956,5.01025,4.74985,4.45573, ...
+%         4.421025]*0.992*0.984; % ms
+%     % 0.3 lbft loss assumed due to changes from 2.6.1.8e to 2.6.1.10e
+%     Torque_lbft = [0.3 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
+%     30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
+%     29.13 27.66 25.5]-0.3; % lb-ft
+%     % 80% TP
+%     FEPW = [0 2.432 2.492 3.071 3.624 3.764 4.043 3.848 4.045 4.045 ...
+%         4.163 3.953 4.028 4.106 4.409 4.633 5.032 5.104 5.119 4.684 ...
+%         4.876 4.6 4.356 4.482 4.251 4.116]*0.992*0.984;
+%     Torque_lbft = [0.5 15.1 16.133 22.3 25.466 26.9 29.3666 28.1666 29.7 ...
+%         30.9 30.166 31.2 30.966 31 31.933 34.133 37.233 36.3 34.933 ...
+%         33.166 31.633 29.933 28.633 28.166 26.6 24.333]-0.5;
 end
 
 % Other fuel maps
@@ -47,12 +97,12 @@ end
 % 2.6.1.8p
 % FEPW = [0 2.742 2.607 3.201 3.797 3.953 4.245 4.13 4.309 4.363 4.391 ...
 %     4.174 4.269	4.406 4.707	4.881 5.524	5.629 5.614	5.322 5.401	5.271 ...
-%     5.202 5.053	4.811]; % ms
+%     5.202 5.053	4.811 4.562]; % ms
 % Torque_lbft = [0 16.26666667 16.93333333 22.66666667 26.43333333 ...
 %     27.63333333	29.96666667	28.63333333	30.13333333	31.76666667	 ...
 %     30.93333333	31.96666667	31.8	32.23333333	33.36666667	35.66666667	...
 %     38.8 37.96666667 36.9 35.23333333 34 31.93333333 30.66666667 ...
-%     28.96666667	27.06666667]; % lb-ft
+%     28.96666667	27.06666667 25.3333]; % lb-ft
 
 fprintf('=======================================\n')
 fprintf('------- Start of new simulation -------\n')
@@ -358,6 +408,7 @@ if ~testEntireRace
     
     if analyzeOrigError
         fprintf('----------------------------------------\n')
+        % Acceleration
         fprintf('Accel time error mean: %0.3f seconds\n', ...
             mean( -((accelTimes)-(predAccelTimes)) ));
         fprintf('Accel time error stdev: %0.3f seconds\n', ...
@@ -366,6 +417,13 @@ if ~testEntireRace
             mean( -((accelTimes)-(predAccelTimes)) ./accelTimes*100));
         fprintf('Accel time error stdev: %0.3f %%\n', ...
             std( -((accelTimes)-(predAccelTimes)) ./accelTimes*100 ));
+        fprintf('Accel time absolute error mean: %0.3f %%\n', ...
+            mean( abs((accelTimes)-(predAccelTimes)) ./accelTimes*100));
+        fprintf('Accel time absolute error stdev: %0.3f %%\n', ...
+            std( abs((accelTimes)-(predAccelTimes)) ./accelTimes*100 ));
+        fprintf('Accel time absolute error max: %0.3f %%\n', ...
+            max(abs(((accelTimes)-(predAccelTimes)) ./accelTimes*100)) );
+        % Fuel
          fprintf('Fuel cons error mean: %0.3f cc\n', ...
             mean( -((fuelCons)-(predFuelCons)) ));
         fprintf('Fuel cons error stdev: %0.3f cc\n', ...
@@ -374,6 +432,12 @@ if ~testEntireRace
             mean( -((fuelCons)-(predFuelCons)) ./fuelCons*100 ));
         fprintf('Fuel cons error stdev: %0.3f %%\n', ...
             std( -((fuelCons)-(predFuelCons)) ./fuelCons*100 ));
+        fprintf('Fuel cons absolute error mean: %0.3f %%\n', ...
+            mean( abs((fuelCons)-(predFuelCons)) ./fuelCons*100 ));
+        fprintf('Fuel cons absolute error stdev: %0.3f %%\n', ...
+            std( abs((fuelCons)-(predFuelCons)) ./fuelCons*100 ));
+        fprintf('Fuel cons absolute error max: %0.3f %%\n', ...
+            max(abs(((fuelCons)-(predFuelCons)) ./fuelCons*100)) );
         % Plot actual versus predicted results along with respective error
         % Acceleration Times
         figure
@@ -381,7 +445,7 @@ if ~testEntireRace
         plot(0:1:length(straights(:,1))-1,accelTimes,0:1:length(straights(:,1))-1,predAccelTimes)
         predAccErr = zeros(length(straights(:,1)),1); % percent error
         title('Actual vs Predicted Accel Times')
-        xlabel('Sample Number')
+        xlabel('Straights Index')
         ylabel('Time [sec]')
         legend('Actual', 'Predicted', 'location', 'best')
         grid on
@@ -391,18 +455,19 @@ if ~testEntireRace
         end
         plot(0:1:length(straights(:,1))-1,predAccErr)
         hold on
-        yline(0, 'k--');
+        yln = zeros(length(straights(:,1)),1);
+        plot(0:1:length(straights(:,1))-1,yln, 'k--');
         ylim([-10 10])
-        title('Acceleration Time Error (Predicted-Actual)/Actual')
-        xlabel('Sample Number')
+        title('Acceleration Time Error')
+        xlabel('Straights Index')
         ylabel('Percent Error [%]')
         legend('Percent Error', 'Target', 'location', 'best')
         grid on
         if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
-            sgt = sgtitle('FSAEM 2019');
+            sgt = suptitle('FSAEM 2019');
             sgt.FontSize = 14;
         elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
-            sgt = sgtitle('FSAEL 2019');
+            sgt = suptitle('FSAEL 2019');
             sgt.FontSize = 14;
         end
         % Fuel Consumption
@@ -412,7 +477,7 @@ if ~testEntireRace
         hold on
         predFuelErr = zeros(length(straights(:,1)),1); % percent error
         title('Actual vs Predicted Fuel Consumption')
-        xlabel('Sample Number')
+        xlabel('Straights Index')
         ylabel('Time [sec]')
         legend('Actual', 'Predicted', 'location', 'best')
         grid on
@@ -422,18 +487,19 @@ if ~testEntireRace
         end
         plot(0:1:length(straights(:,1))-1,predFuelErr)
         hold on
-        yline(0, 'k--');
+        yln = zeros(length(straights(:,1)),1);
+        plot(0:1:length(straights(:,1))-1,yln, 'k--');
         ylim([-10 10])
-        title('Fuel Consumption Error (Predicted-Actual)/Actual')
-        xlabel('Sample Number')
+        title('Fuel Consumption Error')
+        xlabel('Straights Index')
         ylabel('Percent Error [%]')
         legend('Percent Error', 'Target', 'location', 'best')
         grid on
         if (string(Log) == 'FSAEM_Endurance_20190511-1260803.csv')
-            sgt = sgtitle('FSAEM 2019');
+            sgt = suptitle('FSAEM 2019');
             sgt.FontSize = 14;
         elseif (string(Log) == 'FSAEL_Endurance_20190622-1260800_MATLABfix.csv')
-            sgt = sgtitle('FSAEL 2019');
+            sgt = suptitle('FSAEL 2019');
             sgt.FontSize = 14;
         end
     end
