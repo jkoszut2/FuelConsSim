@@ -32,13 +32,7 @@ function [accel_time,stateData] = ...
 % respectively.
 % 2. For whatever value is passed in as "input_Vel_meterspersec", make sure
 % the same exact value is passed into input_RearVel_meterspersec
-% 3. After taking the above steps, the function can be called. For example,
-% accelSim(65, 10, 10, 1, 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 1)
-% runs accelSim for a distance of 65 meters with a starting vehicle
-% velocity of 10 meters/sec. The car starts in 1st gear, has a redline of
-% 12500, a final drive ratio of 36/11. The fuel and torque maps are pulled
-% from the local workspace variables "input_FEPW" and "input_Torque_lbft".
-% Lastly, the modifierArray feature is ignored, but plots are turned on.
+% 3. Lastly, 
 
 if ~exist('producePlots','var') || isempty(producePlots)
     producePlots = 0;
