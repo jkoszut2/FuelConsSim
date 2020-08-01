@@ -17,8 +17,8 @@ LogFSAEM = 'FSAEM_Endurance_20190511-1260803.csv';
 LogFSAEL = 'FSAEL_Endurance_20190622-1260800_MATLABfix.csv';
 
 % fuelSim(<Log Name>, <Entire Race>, <Analyze Error>, <Coupled Mode>)
-[newTimeFSAEM, newFuelFSAEM, straightsFSAEM] = fuelSim(LogFSAEM,0,0,1);
+[newTimeFSAEM, newFuelFSAEM, straightsFSAEM, accelSimDataFSAEM] = fuelSim(LogFSAEM,0,0,1,0);
 [FSAEMendpts,FSAEMeffpts] = calcPointsFSAEM(newTimeFSAEM,newFuelFSAEM);
-[newTimeFSAEL, newFuelFSAEL, straightsFSAEL] = fuelSim(LogFSAEL,0,0,1);
+[newTimeFSAEL, newFuelFSAEL, straightsFSAEL, accelSimDataFSAEL] = fuelSim(LogFSAEL,0,0,1,0);
 [FSAELendpts,FSAELeffpts] = calcPointsFSAEL(newTimeFSAEL,newFuelFSAEL);
 
