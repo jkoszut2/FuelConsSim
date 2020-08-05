@@ -478,7 +478,7 @@ if ~testEntireRace
         predFuelErr = zeros(length(straights(:,1)),1); % percent error
         title('Actual vs Predicted Fuel Consumption')
         xlabel('Straights Index')
-        ylabel('Time [sec]')
+        ylabel('Fuel Consumed [cc]')
         legend('Actual', 'Predicted', 'location', 'best')
         grid on
         subplot(2,1,2)
