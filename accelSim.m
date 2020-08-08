@@ -68,11 +68,11 @@ RPM = [0 2000:500:13500 14000]; % rpm
 FEPW = input_FEPW;
 Torque_lbft = input_Torque_lbft;
 Torque_Nm = Torque_lbft/2.20462*g*12*2.54/100; % Nm
-% Lambda = [1 1.046 0.95 0.9667 0.982 0.9314 0.9608	0.9296 0.9347 0.9348 ...
-%     0.9357 0.9305 0.9203 0.9215 0.9274 0.919 0.9171	0.9181 0.9003 0.8841 ...
-%     0.9235 0.9071 0.8763 0.8519 0.8711 0.8509];
-% FEPW = FEPW./((Lambda+modifierArray(1))./Lambda);
-% Torque_Nm = Torque_Nm*(-2.65*modifierArray(1)^2 - 0.0437*modifierArray(1) + 1);
+Lambda = [1 1.046 0.95 0.9667 0.982 0.9314 0.9608	0.9296 0.9347 0.9348 ...
+    0.9357 0.9305 0.9203 0.9215 0.9274 0.919 0.9171	0.9181 0.9003 0.8841 ...
+    0.9235 0.9071 0.8763 0.8519 0.8711 0.8509]; % Reference lambda
+FEPW = FEPW./((Lambda+modifierArray(1))./Lambda);
+Torque_Nm = Torque_Nm*(-2.65*modifierArray(1)^2 - 0.0437*modifierArray(1) + 1);
 % LC_wss = [0 1 2 3 4 5 7.5 10 15 20 25];
 shifttime = 0.125; % sec
 shifttimer = 0; % sec
