@@ -1,0 +1,516 @@
+clc
+clear
+close all
+
+% Define Vehicle Parameters
+global fdr gears r
+r = 9.875*0.0254;
+gears = 2.073*[31/12 32/16 30/18 26/18 27/21 23/20]; % crank:sprocket
+fdr = 36/11;
+% 2.6.1.10e Fuel and Torque Maps (Used for FSAEM 2019)
+input_FEPW = [0 2.4192,2.5564,3.10415,3.7058,3.7513,3.9263,3.9697,4.0796, ...
+    4.0922,4.0957,4.01625,4.08975,4.2679,4.4856,4.7614,5.319475, ...
+    5.327816,5.19843,5.07126,4.98575,4.956,5.01025,4.74985,4.45573, ...
+    4.421025]*1.015*1.014; % ms
+input_Torque_lbft = [0.3 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
+30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
+29.13 27.66 25.5]-0.3; % lb-ft
+
+% Define Log File
+Log = 'FSAEM_Endurance_20190511-1260803.csv';
+
+% Process Log File
+[~,LoggedData2,~,index_RPM,index_TP, ...
+    index_FEPW,index_WSSFL,index_WSSRL,fs] = processLog(Log);
+
+%% Straights
+% Find Straights
+tpThresh = 90; % min throttle opening
+timeThresh = 1; % min straight duration
+sampleThresh = timeThresh*fs; % min number of samples
+straights = findStraights(Log, LoggedData2, index_TP, index_WSSFL, ...
+                        index_WSSRL, index_RPM, tpThresh, sampleThresh, ...
+                        0);
+
+% Get Parameters of Straights
+WSSRL_RPM = zeros(length(LoggedData2(:,1)),1);
+for o = 1:length(LoggedData2)
+    gear = findGear3(LoggedData2(o,index_RPM),LoggedData2(o,index_WSSFL),13500);
+    WSSRL_RPM(o) = LoggedData2(o,index_RPM)*60*2*pi*r/fdr/gears(gear)/1609.4;
+end
+
+% Calculate distance traveled and fuel consumed during each straight from
+% logged data
+accelTimes = zeros(length(straights(:,1)),1); % miles
+distances = zeros(length(straights(:,1)),1); % miles
+fuelCons = zeros(length(straights(:,1)),1); % cc
+% Injector flow rate below from Ford injector characterization data
+% Ford injector data provided in mass flow rate, so needs to be converted
+% to volumetric flow rate. Also needs to be adjusted based off Bernoulli's
+% principle as Ford testing was performed at 270 kPa
+% Average of gauge fuel pressure from FSAEM and FSAEL is 44.03psi
+% 44.03psi --> 303.57616 kPa
+injFlowRate = 2.58*60/0.738*sqrt(303.57616/270); % cc/min
+for p=1:length(straights(:,1))
+    sampleStart = straights(p,1);
+    sampleEnd = straights(p,2);
+    currDistTraveled = 0;
+    currFuelCons = 0;
+    cylCount = 4;
+    for sampIn = sampleStart:(sampleEnd-1)
+        % Calculate Distance Using Midpoint Sum
+        WSSFL = LoggedData2(sampIn,index_WSSFL); % vehicle velocity in mph
+        WSSRL = LoggedData2(sampIn,index_WSSRL); % vehicle velocity in mph
+        WSSRL2 = WSSRL_RPM(sampIn); % vehicle velocity in mph
+        instDistTraveled = 0.5*(LoggedData2(sampIn,index_WSSFL)+LoggedData2(sampIn+1,index_WSSFL))/3600*(1/fs); % instantaneous distance in miles
+        currDistTraveled = currDistTraveled + instDistTraveled; % distance traveled in miles
+        % Calculate Fuel Consumption Using Midpoint Sum
+        currFPW = LoggedData2(sampIn,index_FEPW)/1000; % injector pulse width in seconds
+        currFPWmax = 1/(LoggedData2(sampIn,index_RPM)/60/2); % pulse width correspond to 100% duty cycle
+        currFDC = currFPW/currFPWmax*100; % injector duty cycle
+        nextFPW = LoggedData2(sampIn+1,index_FEPW)/1000; % injector pulse width in seconds
+        nextFPWmax = 1/(LoggedData2(sampIn+1,index_RPM)/60/2); % pulse width correspond to 100% duty cycle
+        nextFDC = nextFPW/nextFPWmax*100; % injector duty cycle
+        instFuelCons = 0.5*(currFDC+nextFDC)/100*injFlowRate/60*(1/fs)*cylCount; % instantaneous fuel consumed in cc
+        % Check to make sure over-run fuel cut (ORFC) isn't active
+        % NOTE: These should NOT be getting used by the script when
+        % testEntireRace is off
+        if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+            ORFC_RPM = 5500; % RPM above which ORFC is active
+        elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
+            ORFC_RPM = 6000; % RPM above which ORFC is active
+        end
+        ORFC_TP = 20; % Throttle position below which ORFC is active
+        if ((LoggedData2(sampIn,index_TP) < ORFC_TP) && ...
+                (LoggedData2(sampIn,index_RPM)>ORFC_RPM))
+            % Over-run fuel cut is active
+            instFuelCons = 0;
+        end
+        currFuelCons = currFuelCons+instFuelCons; % fuel consumed in cc
+    end
+    accelTimes(p) = (sampleEnd-sampleStart)/fs;
+    distances(p) = currDistTraveled;
+    fuelCons(p) = currFuelCons;
+    % Uncomment below to get straights overlay for throttle position plot
+    % plot(time(straights(i,1):straights(i,2)),tpData(straights(i,1):straights(i,2)),'r')
+    % hold on
+end
+
+% Overall distance traveled and fuel consumed
+% Not required, only used as a method of double checking calculations above
+dt2 = 0; % distance in miles
+fc2 = 0; % fuel consumption in cc
+for q = 1:length(LoggedData2)
+    WSSFL = LoggedData2(q,index_WSSFL); % miles per hour
+    dt2 = dt2+WSSFL/3600*(1/fs);
+    FPW = LoggedData2(q,index_FEPW)/1000; % injector pulse width in seconds
+    FPWmax = 1/(LoggedData2(q,index_RPM)/60/2); % pulse width correspond to 100% duty cycle
+    FDC = FPW/FPWmax*100; % injector duty cycle
+    fc2 = fc2+FDC/100*injFlowRate/60*(1/fs)*cylCount; % fuel consumed in cc
+end
+
+% Find initial conditions for each straight
+initRPM = zeros(length(straights(:,1)),1);
+initWSSFL = zeros(length(straights(:,1)),1);
+initWSSRL = zeros(length(straights(:,1)),1);
+for v = 1:length(straights(:,1))
+    initRPM(v) = LoggedData2(straights(v,1),index_RPM);
+    initWSSFL(v) = LoggedData2(straights(v,1),index_WSSFL);
+    initWSSRL(v) = LoggedData2(straights(v,1),index_WSSRL);
+    % Correct for wrong rear wheel speed calibration
+    initWSSRL(v) = initWSSRL(v);
+end
+
+% Create a table with the characteristics of each straight
+% Purely for convenience of viewing details for each straight
+straightsStateData = table(straights,accelTimes,distances, ...
+    fuelCons,initRPM,initWSSFL,initWSSRL);
+
+%% "Dynamic Programming"
+% Not really DP, essentially brute force right now
+numstraights = size(straights,1);
+iterations = 8;
+input_set = 0:0.02:0.3;
+% results = zeros(iterations*numstraights, length(input_set));
+% speeds = zeros(iterations*numstraights, length(input_set));
+% rpms = zeros(iterations*numstraights, length(input_set));
+nom.time = zeros(iterations,1);
+nom.fuel = zeros(iterations,1);
+fprintf('Running parfor loop\n')
+trun_0 = tic();
+results = cell(numstraights,1);
+parfor z = 1:numstraights
+    sSD = straightsStateData(z,:);
+    [points_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set);
+    results{z} = [points_out, speeds_out, rpms_out];
+end
+% Concatenate results
+tmp_results = cat(1, results{:});
+runtime = toc(trun_0);
+fprintf('Time to run parfor loop: %0.2f sec\n', runtime)
+%%
+% REPLACED BY DP FUNCTION
+%{
+for m = 1:numstraights
+    straight = straightsStateData(m,:);
+    totaldist = straight{1,3}*1609.4;
+    totaldist = round(totaldist)+1;
+    init_rpm = straight{1,5};
+    init_V = straight{1,6}*1609.4/3600;
+    init_V = round(init_V)+1;
+    [accelTime, stateData] = accelSim(totaldist, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+    final_V = stateData{end,7}*1609.4/3600;
+    final_V = round(final_V);
+    totalVel = final_V-init_V;
+    [accelTime2, stateData2] = accelSim2(totalVel*3600/1609.4, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+    %%
+    N_d = 5; % distance step
+    % N_v = 5; % velocity step
+    curr_dist = 0;
+    % iterations = totaldist/N_d;
+    % iterations = totalVel/N_v;
+    N_d = totaldist/iterations;
+    % Get nominal trajectory
+    for i=1:iterations
+        if i == 1
+            curr_V = init_V;
+            rpm = init_rpm;
+        else
+            curr_V = stateData{end,:}(3);
+            rpm = stateData{end,:}(6);
+        end
+        findGear3(rpm, curr_V, 12000);
+        [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+        nom.time(i) = stateData{end,:}(1);
+        nom.fuel(i) = stateData{end,:}(10);
+    end
+    fprintf('Deviating from nominal trajectory\n')
+    %% Deviate from nominal trajectory
+    stage = cell(1,iterations);
+    for i=1:iterations
+        for j=1:length(input_set)
+            if i == 1
+                curr_V = init_V;
+                rpm = init_rpm;
+            else
+                curr_V = stage{i-1}.vel(j);
+                rpm = stage{i-1}.rpm(j);
+            end
+            findGear3(rpm, curr_V, 12000);
+            [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, input_set(j), 0);
+            delta_t = nom.time(i) - stateData{end,:}(1);
+            delta_f = nom.fuel(i) - stateData{end,:}(10);
+            [d1,d2] = calcPointsFSAEM(81.94-delta_t,577.904557504403-delta_f,0);
+            stage{i}.pts(j) = d1+d2;
+            stage{i}.vel(j) = stateData{end,:}(3);
+            stage{i}.rpm(j) = stateData{end,:}(6);        
+        end
+        % Calculate Costs
+        results(i+(m-1)*iterations,:) = stage{i}.pts();
+        speeds(i+(m-1)*iterations,:) = stage{i}.vel();
+        rpms(i+(m-1)*iterations,:) = stage{i}.rpm();
+    %     for j = 1:length(input_set)
+    %         fprintf("%0.3f ", stage{i}.pts(j))
+    %     end
+    %     fprintf("\n")
+    end
+end
+%}
+%%
+% Only using points (first 7 columns)
+tmp = length(input_set);
+results = tmp_results(:,1:tmp);
+speeds = tmp_results(:,tmp+1:tmp*2);
+rpms = tmp_results(:,tmp*2+1:tmp*3);
+results_shape = size(results);
+rows = results_shape(1);
+cols = results_shape(2);
+figure
+for i=1:rows
+    plot(input_set,results(i,:))
+    hold on
+end
+hold on
+plot(input_set,mean(results),'k--','linewidth',7)
+title('Straight is Fixed')
+xlabel('Lambda')
+ylabel('Points')
+fprintf("Previous maximum points = %0.3f\n", max(mean(results,1))*392)
+index_max = find(mean(results,1)==max(mean(results,1)));
+fprintf("Check maximum points = %0.3f\n", sum(results(:,index_max)))
+
+new_max = 0;
+for i=1:rows
+    new_max = new_max + max(results(i,:));
+end
+fprintf("New maximum points = %0.3f\n", new_max)
+
+figure
+for i=1:cols
+    if i == index_max
+        plot(results(:,i),'k','linewidth',2)
+    else
+        plot(results(:,i))
+    end
+    hold on
+end
+title('Lambda is Fixed')
+xlabel('Iteration')
+ylabel('Points')
+legend
+
+optimal_pts = zeros(length(results),1);
+for i=1:length(results)
+    optimal_pts(i) = max(results(i,:));
+end
+figure
+subplot(2,1,1)
+plot(results(:,index_max))
+hold on
+plot(optimal_pts)
+title('Lambda is Fixed - Current vs Optimal')
+xlabel('Iteration')
+ylabel('Points')
+legend({'Current', 'Optimal'})
+subplot(2,1,2)
+plot(optimal_pts-results(:,index_max))
+title('Potential Margin')
+xlabel('Iteration')
+
+% Speed
+speed_veh = zeros(length(results),1);
+speed_eng = zeros(length(results),1);
+for i=1:length(results)
+    speed_veh(i) = max(speeds(i,:));
+    speed_eng(i) = max(rpms(i,:));
+end
+
+optimal_lam = zeros(length(results),1);
+for i=1:length(results)
+    tmp_max = max(results(i,:));
+    tmp_index = find(results(i,:) == tmp_max);
+    optimal_lam(i) = input_set(tmp_index);
+end
+%%
+figure
+scatter(speed_veh,optimal_lam)
+xlabel('Vehicle Speed [mph]')
+ylabel('Optimal Lambda Deviation')
+figure
+scatter(speed_eng,optimal_lam)
+xlabel('Engine Speed [rpm]')
+ylabel('Optimal Lambda Deviation')
+%%
+clc
+rpm3d = 10000:500:13000;
+lambda3d = input_set;
+grid = zeros(length(rpm3d),length(lambda3d));
+tol = 1e-8;
+for i = 1:length(speed_eng)
+%     display(speed_eng(i))
+%     display(optimal_lam(i))
+    for k = 2:length(rpm3d)
+%         display(k)
+        if ((rpm3d(k-1) < speed_eng(i)) && (speed_eng(i) < rpm3d(k)))
+%             display("Speed found")
+            for j = 2:length(input_set)
+%                 display(j)
+                if((input_set(j-1) < optimal_lam(i)) && (optimal_lam(i) < input_set(j)+tol))
+                    grid(k,j) = grid(k,j) + 1;
+                end
+            end
+            % Check edge case
+            if (optimal_lam(i) == input_set(1))
+                grid(k,1) = grid(k,1) + 1;
+            end
+        end
+    end
+end
+fprintf("Data points: %0.0f\nGrid Sum: %0.0f\n", length(speed_eng), sum(sum(grid)))
+if (length(speed_eng) ~= sum(sum(grid)))
+    fprintf("Not all data points used in grid. Consider expanding grid boundaries.\n")
+end
+X = repmat(rpm3d,length(lambda3d),1)';
+Y = repmat(lambda3d,length(rpm3d),1);
+surf(X,Y,grid)
+%% Functions
+function gear = findGear3(currRPM, currWSSrear, maxRPM)
+% global r fdr gears
+% Globals not working with DP function so import directly here
+r = 9.875*0.0254;
+gears = 2.073*[31/12 32/16 30/18 26/18 27/21 23/20]; % crank:sprocket
+fdr = 36/11;
+% Same as findGear2 but two major changes:
+% 1. Prioritizes RPM over vehicle velocity to find gear
+% 2. No optimal gear selection
+% Use this function to initialize the accel sim
+% currRPM is current RPM
+% currWSSrear is current rear wheel speed reading in miles per hour
+n = 6;
+err = 13500*ones(6,1); % Initialize an error array
+% Loop over each possible gear and determine the error between actual
+% RPM and theoretical RPM for that gear. If a gear will cause an RPM
+% greater than redline, do not calculate the error, simply leave the error
+% to be as redline to ensure it does not become a minimum
+redlineLoc = maxRPM;
+while ((n>=1) && (currWSSrear/60*1609.4/(2*pi*r)*fdr*gears(n) < redlineLoc))
+    predRPM = currWSSrear/60*1609.4/(2*pi*r)*fdr*gears(n);
+    err(n) = abs(predRPM-currRPM);
+    n = n-1;
+end
+% Use the index corresponding to the minimum of the error array as the gear
+[~,minIndex] = min(err);
+gear = minIndex;
+end
+
+function VehV = findVehV(currRPM, currGear)
+% Finds vehicle velocity in miles per hour
+% global r fdr gears
+VehV = currRPM*60/1609.4*(2*pi*r)/gears(currGear)/fdr;
+end
+
+function straights = findStraights(Log, LoggedData2,index_TP, index_WSSFL, ...
+                                index_WSSRL, index_RPM, tpThresh, sampleThresh, ...
+                                testEntireRace)
+% This function finds all the "straights" in a log file
+% The sample points corresponding to the starts and ends of the straights
+% are stored in the straights array 
+
+tpData = LoggedData2(:,index_TP);
+straights = []; % initialize array 
+i = 1;
+while ( (1<=i) && (i<=length(tpData)) )
+    tstpnt = i;
+    % Set a limit on how much higher rear wheel speeds can be than fronts
+    % to avoid issues with high wheel slip.
+    if ~testEntireRace
+        if ( (tpData(tstpnt) >= tpThresh) && ...
+                (LoggedData2(tstpnt,index_WSSFL) > 30) && ...
+                ((LoggedData2(tstpnt,index_WSSRL)-LoggedData2(tstpnt,index_WSSFL)) < 15))
+            start = tstpnt;
+            while ( (tstpnt < length(tpData)-1) && (tpData(tstpnt+1) >= tpThresh) )
+                tstpnt = tstpnt+1;
+            end
+            stop = tstpnt;
+            % If the straight meets the minimum time requirement, 
+            % then append the straight start stop points to the 
+            % straights array.
+            if ((stop-start >= sampleThresh) && ...
+                    mean(LoggedData2(start:stop,index_WSSRL)-LoggedData2(start:stop,index_WSSFL)) < 10 )
+                    straights = [straights; [start stop]];
+            end
+        end
+    else
+        % To calculate fuel over an entire endurance run, use all samples
+        % occuring after the predefined sample point
+        if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+            strt = 2350;
+        elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
+            strt = 3470;
+        end
+        if ((tstpnt-1) >= strt)
+            if tpData(tstpnt) >= tpThresh
+                start = tstpnt;
+                % RPM constraint is to stop during driver change (engine off)
+                % and after race (engine off again). Reason for this is
+                % that the ECU continues to log for a short bit after the
+                % engine turns off but the battery supply to the ECU is
+                % still active (since the car is still on).
+                while ((tstpnt < length(tpData)-1) && (tpData(tstpnt+1) >= tpThresh) ...
+                        && (LoggedData2(tstpnt,index_RPM) > 10) )
+                    tstpnt = tstpnt+1;
+                end
+                stop = tstpnt;
+                % If the straight meets the minimum time requirement, 
+                % then append the straight start stop points to the 
+                % straights array.
+                if ( (stop-start >= sampleThresh) )
+                        straights = [straights; [start stop]];
+                end
+            end
+        end
+    end
+    i = tstpnt+1;
+end
+end
+
+function [results_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set)
+    % 2.6.1.10e Fuel and Torque Maps (Used for FSAEM 2019)
+    input_FEPW = [0 2.4192,2.5564,3.10415,3.7058,3.7513,3.9263,3.9697,4.0796, ...
+        4.0922,4.0957,4.01625,4.08975,4.2679,4.4856,4.7614,5.319475, ...
+        5.327816,5.19843,5.07126,4.98575,4.956,5.01025,4.74985,4.45573, ...
+        4.421025]*1.015*1.014; % ms
+    input_Torque_lbft = [0.3 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
+    30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
+    29.13 27.66 25.5]-0.3; % lb-ft
+    straight = sSD;
+    totaldist = straight{1,3}*1609.4;
+    totaldist = round(totaldist)+1;
+    init_rpm = straight{1,5};
+    init_V = straight{1,6}*1609.4/3600;
+    init_V = round(init_V)+1;
+    [accelTime, stateData] = accelSim(totaldist, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+    final_V = stateData{end,7}*1609.4/3600;
+    final_V = round(final_V);
+    totalVel = final_V-init_V;
+    [accelTime2, stateData2] = accelSim2(totalVel*3600/1609.4, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+    %%
+    N_d = 5; % distance step
+    % N_v = 5; % velocity step
+    curr_dist = 0;
+    % iterations = totaldist/N_d;
+    % iterations = totalVel/N_v;
+    N_d = totaldist/iterations;
+    % Get nominal trajectory
+    for i=1:iterations
+        if i == 1
+            curr_V = init_V;
+            rpm = init_rpm;
+        else
+            curr_V = stateData{end,:}(3);
+            rpm = stateData{end,:}(6);
+        end
+        findGear3(rpm, curr_V, 12000);
+        [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+        nom.time(i) = stateData{end,:}(1);
+        nom.fuel(i) = stateData{end,:}(10);
+    end
+    fprintf('Deviating from nominal trajectory\n')
+    %% Deviate from nominal trajectory
+    stage = cell(1,iterations);
+    for i=1:iterations
+        for j=1:length(input_set)
+            if i == 1
+                curr_V = init_V;
+                rpm = init_rpm;
+            else
+                curr_V = stage{i-1}.vel(j);
+                rpm = stage{i-1}.rpm(j);
+            end
+            findGear3(rpm, curr_V, 12000);
+            [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, input_set(j), 0);
+            delta_t = nom.time(i) - stateData{end,:}(1);
+            delta_f = nom.fuel(i) - stateData{end,:}(10);
+            [d1,d2] = calcPointsFSAEM(81.94-delta_t,577.904557504403-delta_f,0);
+            stage{i}.pts(j) = d1+d2;
+            stage{i}.vel(j) = stateData{end,:}(3);
+            stage{i}.rpm(j) = stateData{end,:}(6);        
+        end
+        % Calculate Costs
+%         results(i+(m-1)*iterations,:) = stage{i}.pts();
+%         speeds(i+(m-1)*iterations,:) = stage{i}.vel();
+%         rpms(i+(m-1)*iterations,:) = stage{i}.rpm();
+        % Parallel computing setup
+        results(i,:) = stage{i}.pts();
+        speeds(i,:) = stage{i}.vel();
+        rpms(i,:) = stage{i}.rpm();
+    %     for j = 1:length(input_set)
+    %         fprintf("%0.3f ", stage{i}.pts(j))
+    %     end
+    %     fprintf("\n")
+    end
+    stage_out = stage; % Not needed since same data is in below variables
+    results_out = results;
+    speeds_out = speeds;
+    rpms_out = rpms;
+end

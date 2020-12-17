@@ -1,9 +1,15 @@
 function [accel_time,stateData] = ...
-    accelSim(input_Dist_meters,input_Vel_meterspersec, ...
+    accelSim2(input_Vel_milesperhour,input_Vel_meterspersec, ...
               input_RearVel_meterspersec,input_Gear, ...
               input_redline,input_fdr,input_FEPW,input_Torque_lbft, ...
               modifierArray,producePlots)
-          
+
+% NOTE: Same as accelSim but operates in the "speed domain", i.e. the
+% simulation is run for as long as it takes initial velocity to increase
+% by input_Vel_meterspersec*3600/1609.4 (max velocity is variable velMax)
+% On the other hand, accelSim operates in the "spatial domain", stopping
+% the simulation after a specific distance (again user-defined) is traveled
+
 % Simulation for straight line non-traction limited acceleration
 
 % DESCRIPTION:
@@ -86,7 +92,7 @@ end
 % NOTE: No warning if rpm input to findTorque > redline
 % Result for above is 0 and NOT nan, thus need another case to detect
 
-distMax = input_Dist_meters;
+velMax = input_Vel_milesperhour + input_Vel_meterspersec*3600/1609.4;
 
 shifttimer = 0; % ensure timer is at 0 in case params were not run
 
@@ -186,7 +192,7 @@ end
 
 t = 0:dt:tMax;
 i = 2; % Start calculations the next sample after t=0 sec
-while ((x(i-1,index_Pos) < distMax) && i<=(tMax/dt+1))
+while ((x(i-1,index_WSSFL) < velMax) && i<=(tMax/dt+1))
     if producePlots
         fprintf('Time: %0.5f\n', t(i))
     end
@@ -247,7 +253,7 @@ end
 
 lastindex = i-1; % Avoid plotting zeros located at end of state array
 
-accel_time = t(find(x(:,index_Pos)>=distMax,1)); % seconds
+accel_time = t(find(x(:,index_WSSFL)>=velMax,1)); % seconds
 % Should not get in here but double check anyways to simplify debugging in
 % the event that tMax is not large enough
 if isempty(accel_time)
@@ -258,7 +264,7 @@ error(['Simulation ended before target distance was covered. ', ...
         '\nDistance traveled in simulation = %0.3f meters', ...
         '\nInitial RPM = %0.3f', ...
         '\nInitial WSSFL = %0.3f'], ...
-        tMax, distMax, x(lastindex,index_Pos),x(1,index_RPM),x(1,index_WSSFL))
+        tMax, velMax, x(lastindex,index_WSSFL),x(1,index_RPM),x(1,index_WSSFL))
 end
 if producePlots
     fprintf('Accel time: %0.1f msec\n', accel_time*1000)
