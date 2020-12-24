@@ -1,23 +1,64 @@
+% December 19, 2020
+% Joe Koszut
+% Script used for sweeping lambda during an accel run.
+
+% DIRECTIONS:
+% 1. Choose one of the log files below
+% 2. Define a sweep
+% 3. Go to accelSim and set up the vehice parameters of interest so that 
+%    they can be changed during the sweep
+% 3. Set up data mapping accordingly in the for loop
+% 4. Run script
+
 clc
 clear
 close all
+
+% CHOOSE LOG FILE
+Log = 'FSAEM_Endurance_20190511-1260803.csv';
+% Log = 'FSAEL_Endurance_20190622-1260800_MATLABfix.csv';
+
+% NOTE: Set shifttime to 0sec in accelSim for cleaner results. Magnitude of
+% results is not very sensitive to shift time. See results on wiki.
+redline = 12000;
 
 % Define Vehicle Parameters
 global fdr gears r
 r = 9.875*0.0254;
 gears = 2.073*[31/12 32/16 30/18 26/18 27/21 23/20]; % crank:sprocket
-fdr = 36/11;
-% 2.6.1.10e Fuel and Torque Maps (Used for FSAEM 2019)
-input_FEPW = [0 2.4192,2.5564,3.10415,3.7058,3.7513,3.9263,3.9697,4.0796, ...
-    4.0922,4.0957,4.01625,4.08975,4.2679,4.4856,4.7614,5.319475, ...
-    5.327816,5.19843,5.07126,4.98575,4.956,5.01025,4.74985,4.45573, ...
-    4.421025]*1.015*1.014; % ms
-input_Torque_lbft = [0.3 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
-30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
-29.13 27.66 25.5]-0.3; % lb-ft
 
-% Define Log File
-Log = 'FSAEM_Endurance_20190511-1260803.csv';
+if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+    fdr = 36/11;
+    % 2.6.1.10e
+    % All FEPW values multipled by 1.015 to account for average air temp 
+    % compensation during FSAEM 2019
+    % All values also multipled by 1.014 to account for average lambda 
+    % closed loop control effort during FSAEM 2019
+    input_FEPW = [0 2.4192,2.5564,3.10415,3.7058,3.7513,3.9263,3.9697,4.0796, ...
+        4.0922,4.0957,4.01625,4.08975,4.2679,4.4856,4.7614,5.319475, ...
+        5.327816,5.19843,5.07126,4.98575,4.956,5.01025,4.74985,4.45573, ...
+        4.421025]*1.015*1.014; % ms
+    % 0.3 lbft loss assumed due to changes from 2.6.1.8e to 2.6.1.10e
+    input_Torque_lbft = [0.3 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
+    30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
+    29.13 27.66 25.5]-0.3; % lb-ft
+elseif (strcmp(Log,'FSAEL_Endurance_20190622-1260800_MATLABfix.csv'))
+    fdr = 34/11;
+    % 2.6.1.15e
+    % All FEPW values multipled by 0.992 to account for average air temp 
+    % compensation during FSAEL 2019
+    % All FEPW values also multipled by 0.984 to account for average lambda 
+    % closed loop control effort during FSAEL 2019
+    input_FEPW = [0 2.4192 2.5564 3.10415 3.6288 3.7513 3.84335 3.9305 4.0229 ...
+        4.0194 4.0145 3.92875 4.02325 4.2308 4.4548 4.7124 5.2346 5.215 ...
+        5.13846 4.93686 4.81425 4.83 4.95308 4.7047 4.393783 4.34665]*0.992*0.984; % ms
+    % 0.2 lbft loss assumed due to changes from 2.6.1.10e to 2.6.1.15e
+    % 0.3 lbft has to be accounted for 2.6.1.8e --> 2.6.1.10e, so really
+    % have to assume loss of 0.5 lbft from 2.6.1.08e --> 2.6.1.15e
+    input_Torque_lbft = [0.5 15.17 15.93 22.67 26.13 27.57 29.07 28.83 30.07 31.17 ...
+    30.97 31.6 31.53 31.83 33 35.33 38.1 37.67 36.67 35 33.67 31.83 31 ...
+    29.13 27.66 25.5]-0.5; % lb-ft
+end
 
 % Process Log File
 [~,LoggedData2,~,index_RPM,index_TP, ...
@@ -129,8 +170,8 @@ straightsStateData = table(straights,accelTimes,distances, ...
 %% "Dynamic Programming"
 % Not really DP, essentially brute force right now
 numstraights = size(straights,1);
-iterations = 8;
-input_set = 0:0.02:0.3;
+iterations = 10;
+input_set = 0:0.02:0.4;
 % results = zeros(iterations*numstraights, length(input_set));
 % speeds = zeros(iterations*numstraights, length(input_set));
 % rpms = zeros(iterations*numstraights, length(input_set));
@@ -141,14 +182,20 @@ trun_0 = tic();
 results = cell(numstraights,1);
 parfor z = 1:numstraights
     sSD = straightsStateData(z,:);
-    [points_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set);
+    [points_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set, redline, Log);
     results{z} = [points_out, speeds_out, rpms_out];
 end
 % Concatenate results
 tmp_results = cat(1, results{:});
 runtime = toc(trun_0);
 fprintf('Time to run parfor loop: %0.2f sec\n', runtime)
-%%
+%% For debugging
+z=11;
+ssD = straightsStateData(z,:);
+input_set = [0 0.05];
+iterations = 6;
+[points_out, speeds_out, rpms_out] = DP(ssD, iterations, input_set, redline);
+tmp_results = [points_out, speeds_out, rpms_out];
 % REPLACED BY DP FUNCTION
 %{
 for m = 1:numstraights
@@ -216,7 +263,7 @@ for m = 1:numstraights
     end
 end
 %}
-%%
+%% PLOT
 % Only using points (first 7 columns)
 tmp = length(input_set);
 results = tmp_results(:,1:tmp);
@@ -231,11 +278,16 @@ for i=1:rows
     hold on
 end
 hold on
-plot(input_set,mean(results),'k--','linewidth',7)
-title('Straight is Fixed')
-xlabel('Lambda')
-ylabel('Points')
-fprintf("Previous maximum points = %0.3f\n", max(mean(results,1))*392)
+h = plot(input_set,mean(results),'k--','linewidth',5);
+if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+   title('FSAEM - All Iterations (n = ' + string(rows) + ')')
+else
+   title('FSAEL - All Iterations (n = ' + string(rows) + ')')
+end
+xlabel('Lambda Deviation')
+ylabel('Points Gain')
+legend(h, 'Mean','location','best')
+fprintf("Previous maximum points = %0.3f\n", max(mean(results,1))*size(results,1))
 index_max = find(mean(results,1)==max(mean(results,1)));
 fprintf("Check maximum points = %0.3f\n", sum(results(:,index_max)))
 
@@ -259,8 +311,8 @@ xlabel('Iteration')
 ylabel('Points')
 legend
 
-optimal_pts = zeros(length(results),1);
-for i=1:length(results)
+optimal_pts = zeros(size(results,1),1);
+for i=1:size(results,1)
     optimal_pts(i) = max(results(i,:));
 end
 figure
@@ -274,19 +326,19 @@ ylabel('Points')
 legend({'Current', 'Optimal'})
 subplot(2,1,2)
 plot(optimal_pts-results(:,index_max))
-title('Potential Margin')
+title('Room for Improvement')
 xlabel('Iteration')
 
 % Speed
-speed_veh = zeros(length(results),1);
-speed_eng = zeros(length(results),1);
-for i=1:length(results)
+speed_veh = zeros(size(results,1),1);
+speed_eng = zeros(size(results,1),1);
+for i=1:size(results,1)
     speed_veh(i) = max(speeds(i,:));
     speed_eng(i) = max(rpms(i,:));
 end
 
-optimal_lam = zeros(length(results),1);
-for i=1:length(results)
+optimal_lam = zeros(size(results,1),1);
+for i=1:size(results,1)
     tmp_max = max(results(i,:));
     tmp_index = find(results(i,:) == tmp_max);
     optimal_lam(i) = input_set(tmp_index);
@@ -302,7 +354,7 @@ xlabel('Engine Speed [rpm]')
 ylabel('Optimal Lambda Deviation')
 %%
 clc
-rpm3d = 10000:500:13000;
+rpm3d = 10125:250:12125;
 lambda3d = input_set;
 grid = zeros(length(rpm3d),length(lambda3d));
 tol = 1e-8;
@@ -332,7 +384,56 @@ if (length(speed_eng) ~= sum(sum(grid)))
 end
 X = repmat(rpm3d,length(lambda3d),1)';
 Y = repmat(lambda3d,length(rpm3d),1);
-surf(X,Y,grid)
+
+%%
+% Find optimal lambda by RPM
+rpm_opt = rpm3d-250;
+opt_lam_rpm = zeros(1,length(rpm_opt));
+for j = 1:length(rpm3d)
+    sum1 = sum(grid(j,:));
+    sum2 = 0;
+    for i = 1:length(lambda3d)
+        sum2 = sum2 + grid(j,i)*lambda3d(i);
+    end
+    opt_lam_rpm(j) = sum2/sum1;
+end
+
+%%
+figure
+sh = surf(X-125,Y,grid);
+if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+    title("FSAEM")
+else
+    title("FSAEL")
+end
+xlabel("RPM")
+ylabel("Opt. Lam. Deviation",'Rotation',-23)
+zlabel("Count")
+ax = gca;
+ax.XRuler.Exponent = 0;
+set(sh, 'FaceColor', 'interp')
+% shading interp
+% caxis([min(min(grid)) max(max(grid))-20])
+
+figure
+sh = surface(X-125,Y,grid);
+xlabel("RPM")
+ylabel("Optimal Lambda Deviation")
+zlabel("Count")
+xticks(rpm3d-125)
+xtickangle(45)
+ax = gca;
+ax.XRuler.Exponent = 0;
+set(sh, 'FaceColor', 'interp')
+hold on
+h1 = plot3(rpm3d-125,opt_lam_rpm,max(max(grid))*ones(length(rpm3d)),'-ro','linewidth',2, 'MarkerFaceColor', 'r');
+legend(h1, 'Mean', 'location', 'best')
+if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+    title("FSAEM")
+else
+    title("FSAEL")
+end
+        
 %% Functions
 function gear = findGear3(currRPM, currWSSrear, maxRPM)
 % global r fdr gears
@@ -434,7 +535,7 @@ while ( (1<=i) && (i<=length(tpData)) )
 end
 end
 
-function [results_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set)
+function [results_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set, redline, Log)
     % 2.6.1.10e Fuel and Torque Maps (Used for FSAEM 2019)
     input_FEPW = [0 2.4192,2.5564,3.10415,3.7058,3.7513,3.9263,3.9697,4.0796, ...
         4.0922,4.0957,4.01625,4.08975,4.2679,4.4856,4.7614,5.319475, ...
@@ -449,11 +550,11 @@ function [results_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set)
     init_rpm = straight{1,5};
     init_V = straight{1,6}*1609.4/3600;
     init_V = round(init_V)+1;
-    [accelTime, stateData] = accelSim(totaldist, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+    [accelTime, stateData] = accelSim(totaldist, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, redline), redline, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
     final_V = stateData{end,7}*1609.4/3600;
     final_V = round(final_V);
     totalVel = final_V-init_V;
-    [accelTime2, stateData2] = accelSim2(totalVel*3600/1609.4, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+    [accelTime2, stateData2] = accelSim2(totalVel*3600/1609.4, init_V, init_V, findGear3(init_rpm, init_V*3600/1609.4, redline), redline, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
     %%
     N_d = 5; % distance step
     % N_v = 5; % velocity step
@@ -471,11 +572,11 @@ function [results_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set)
             rpm = stateData{end,:}(6);
         end
         findGear3(rpm, curr_V, 12000);
-        [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
+        [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, redline), redline, 36/11, input_FEPW, input_Torque_lbft, 0, 0);
         nom.time(i) = stateData{end,:}(1);
         nom.fuel(i) = stateData{end,:}(10);
     end
-    fprintf('Deviating from nominal trajectory\n')
+    % fprintf('Deviating from nominal trajectory\n')
     %% Deviate from nominal trajectory
     stage = cell(1,iterations);
     for i=1:iterations
@@ -488,10 +589,14 @@ function [results_out, speeds_out, rpms_out] = DP(sSD, iterations, input_set)
                 rpm = stage{i-1}.rpm(j);
             end
             findGear3(rpm, curr_V, 12000);
-            [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, 12000), 12500, 36/11, input_FEPW, input_Torque_lbft, input_set(j), 0);
+            [accelTime, stateData] = accelSim(N_d, curr_V, curr_V, findGear3(rpm, curr_V*3600/1609.4, redline), redline, 36/11, input_FEPW, input_Torque_lbft, input_set(j), 0);
             delta_t = nom.time(i) - stateData{end,:}(1);
             delta_f = nom.fuel(i) - stateData{end,:}(10);
-            [d1,d2] = calcPointsFSAEM(81.94-delta_t,577.904557504403-delta_f,0);
+            if (strcmp(Log,'FSAEM_Endurance_20190511-1260803.csv'))
+                [d1,d2] = calcPointsFSAEM(81.94-delta_t,577.904557504403-delta_f,0);
+            else
+                [d1,d2] = calcPointsFSAEL(123.48-delta_t,777.401686972868-delta_f,0);
+            end
             stage{i}.pts(j) = d1+d2;
             stage{i}.vel(j) = stateData{end,:}(3);
             stage{i}.rpm(j) = stateData{end,:}(6);        

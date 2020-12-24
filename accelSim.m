@@ -75,6 +75,7 @@ FEPW = FEPW./((Lambda+modifierArray(1))./Lambda);
 Torque_Nm = Torque_Nm*(-2.65*modifierArray(1)^2 - 0.0437*modifierArray(1) + 1);
 % LC_wss = [0 1 2 3 4 5 7.5 10 15 20 25];
 shifttime = 0.125; % sec
+shifttime = 0.125; % sec - SET TO 0 ONLY FOR RFS4
 shifttimer = 0; % sec
 shiftflag = 0; % boolean to signify paddle upshift
 dteff = 0.85; % drivetrain efficiency
@@ -187,9 +188,9 @@ end
 t = 0:dt:tMax;
 i = 2; % Start calculations the next sample after t=0 sec
 while ((x(i-1,index_Pos) < distMax) && i<=(tMax/dt+1))
-    if producePlots
-        fprintf('Time: %0.5f\n', t(i))
-    end
+%     if producePlots
+%         fprintf('Time: %0.5f\n', t(i))
+%     end
     % Using previous solution, find wheel speed, gear, and max Fx
     prev_WSSFL = x(i-1,index_WSSFL); % front wheel speed [mph]
     prev_WSSRL = x(i-1,index_WSSRL); % rear wheel speed [mph]
@@ -262,6 +263,7 @@ error(['Simulation ended before target distance was covered. ', ...
 end
 if producePlots
     fprintf('Accel time: %0.1f msec\n', accel_time*1000)
+    fprintf('Fuel consumed: %0.4f mcc\n', x(i-1,index_CumFuelCons)*1000)
 end
 
 if producePlots
